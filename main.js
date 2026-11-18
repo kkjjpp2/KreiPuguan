@@ -1,151 +1,121 @@
-(() => {
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+/* Krei Puguan portfolio: scroll progress, scroll reveal, count-up, active nav, page transitions, copy buttons */
+(function () {
+  'use strict';
 
-  // 1. Scroll-reveal animations (.reveal & .reveal.wipe)
-  const reveals = document.querySelectorAll('.reveal');
-  if (reveals.length) {
-    if (reducedMotion || !('IntersectionObserver' in window)) {
-      reveals.forEach((el) => el.classList.add('in'));
-    } else {
-      const revealObserver = new IntersectionObserver(
-        (entries, observer) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('in');
-              observer.unobserve(entry.target);
-            }
-          });
-        },
-        { rootMargin: '0px 0px -40px 0px', threshold: 0.06 }
-      );
-      reveals.forEach((el) => revealObserver.observe(el));
-    }
+  var hasIO = 'IntersectionObserver' in window;
+
+  /* scroll progress bar */
+  var bar = document.querySelector('.progress');
+  var ticking = false;
+  function paintProgress() {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    var p = max > 0 ? (window.pageYOffset || h.scrollTop) / max : 0;
+    if (bar) bar.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+    ticking = false;
+  }
+  window.addEventListener('scroll', function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(paintProgress); }
+  }, { passive: true });
+  paintProgress();
+
+  /* scroll reveal */
+  var items = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
+  if (!hasIO) {
+    items.forEach(function (el) { el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    items.forEach(function (el) { io.observe(el); });
   }
 
-  // 2. Hero number count-up ([data-count])
-  document.querySelectorAll('[data-count]').forEach((el) => {
-    const target = parseInt(el.dataset.count, 10);
-    if (Number.isNaN(target) || reducedMotion) return;
-
-    const duration = 900;
-    const delay = 850; // matches .callout entrance delay in styles.css
-    el.textContent = '0';
-
-    setTimeout(() => {
-      const start = performance.now();
-      const tick = (now) => {
-        const t = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - t, 3);
-        el.textContent = Math.round(eased * target);
-        if (t < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, delay);
-  });
-
-  // 3. Top scroll progress bar & section scroll-spy
-  const progressBar = document.querySelector('.progress');
-  const spyLinks = [...document.querySelectorAll('.mast nav a[data-spy]')];
-  const spySections = spyLinks
-    .map((link) => ({
-      link,
-      section: document.getElementById(link.dataset.spy),
-    }))
-    .filter((item) => item.section);
-
-  let ticking = false;
-  const updateOnScroll = () => {
-    ticking = false;
-
-    if (progressBar) {
-      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-      const ratio = scrollable > 0 ? Math.min(Math.max(window.scrollY / scrollable, 0), 1) : 0;
-      progressBar.style.transform = `scaleX(${ratio})`;
-    }
-
-    if (spySections.length) {
-      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8;
-      let activeId = null;
-
-      if (atBottom) {
-        activeId = spySections[spySections.length - 1].section.id;
-      } else {
-        const triggerY = window.scrollY + 140;
-        for (const { section } of spySections) {
-          if (section.offsetTop <= triggerY) {
-            activeId = section.id;
-          }
-        }
+  /* count-up numbers (the HTML already holds the final value) */
+  {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-count]'), function (el) {
+      var end = parseInt(el.getAttribute('data-count'), 10);
+      if (isNaN(end)) return;
+      el.textContent = '0';
+      var start = null;
+      function step(t) {
+        if (start === null) start = t;
+        var k = Math.min((t - start) / 900, 1);
+        el.textContent = Math.round(end * (1 - Math.pow(1 - k, 3)));
+        if (k < 1) requestAnimationFrame(step);
       }
-
-      spyLinks.forEach((link) => {
-        link.classList.toggle('active', link.dataset.spy === activeId);
-      });
-    }
-  };
-
-  const requestTick = () => {
-    if (!ticking) {
-      ticking = true;
-      requestAnimationFrame(updateOnScroll);
-    }
-  };
-
-  window.addEventListener('scroll', requestTick, { passive: true });
-  window.addEventListener('resize', requestTick, { passive: true });
-  updateOnScroll();
-
-  // 4. Copy buttons in Contact section
-  document.querySelectorAll('.copy[data-copy]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const text = btn.dataset.copy;
-      if (!text) return;
-
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        const temp = document.createElement('textarea');
-        temp.value = text;
-        temp.style.position = 'fixed';
-        temp.style.opacity = '0';
-        document.body.appendChild(temp);
-        temp.select();
-        document.execCommand('copy');
-        temp.remove();
-      }
-
-      const original = btn.textContent;
-      btn.textContent = 'Copied';
-      clearTimeout(btn._copyTimer);
-      btn._copyTimer = setTimeout(() => {
-        btn.textContent = original;
-      }, 1600);
+      setTimeout(function () { requestAnimationFrame(step); }, 950);
     });
-  });
+  }
 
-  // 5. Smooth page-leave transition between pages
-  if (!reducedMotion) {
-    document.addEventListener('click', (e) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const link = e.target.closest('a[href]');
-      if (!link || link.target === '_blank' || link.hasAttribute('download')) return;
+  /* highlight the nav link for the section on screen (home page only) */
+  var links = Array.prototype.slice.call(document.querySelectorAll('.mast nav a[data-spy]'));
+  if (links.length && hasIO) {
+    var byId = {};
+    links.forEach(function (a) { byId[a.getAttribute('data-spy')] = a; });
+    var spy = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = byId[entry.target.id];
+        if (a) a.classList.add('active');
+      });
+    }, { rootMargin: '-45% 0px -50% 0px' });
+    Object.keys(byId).forEach(function (id) {
+      var sec = document.getElementById(id);
+      if (sec) spy.observe(sec);
+    });
+  }
 
-      const href = link.getAttribute('href');
-      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
-
-      const url = new URL(link.href, window.location.href);
-      if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname && url.hash) return;
-
+  /* fade the page out before moving to another page of the site */
+  {
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a || e.defaultPrevented || e.button !== 0) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      if (a.target && a.target !== '_self') return;
+      var url;
+      try { url = new URL(a.href, window.location.href); } catch (err) { return; }
+      if (url.protocol !== window.location.protocol || url.host !== window.location.host) return;
+      if (url.pathname === window.location.pathname) return;
       e.preventDefault();
       document.body.classList.add('leaving');
-      setTimeout(() => {
-        window.location.href = link.href;
-      }, 210);
+      setTimeout(function () { window.location.href = url.href; }, 220);
     });
-
-    window.addEventListener('pageshow', () => {
-      document.body.classList.remove('leaving');
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted) document.body.classList.remove('leaving');
     });
   }
+
+  /* copy buttons in the contact block */
+  function flash(btn, text) {
+    if (!btn.getAttribute('data-label')) btn.setAttribute('data-label', btn.textContent);
+    btn.textContent = text;
+    clearTimeout(btn._t);
+    btn._t = setTimeout(function () { btn.textContent = btn.getAttribute('data-label'); }, 1800);
+  }
+  function selectText(btn) {
+    var el = btn.parentElement.querySelector('.v');
+    if (!el || !window.getSelection) return;
+    var range = document.createRange();
+    range.selectNodeContents(el);
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    flash(btn, 'Selected');
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-copy]') : null;
+    if (!btn) return;
+    var text = btn.getAttribute('data-copy');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { flash(btn, 'Copied'); }, function () { selectText(btn); });
+    } else {
+      selectText(btn);
+    }
+  });
 })();

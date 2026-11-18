@@ -103,18 +103,21 @@ body.leaving main{opacity:0;transform:translateY(-6px);transition:opacity .22s e
 .callout .sm{font:500 13px var(--f-label);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
 
 .lockup{display:flex;flex-direction:column;align-items:flex-start;min-width:0;padding-right:12px}
+/* The glow sits on the outer box and the reveal clips the inner span. The span is padded and tall enough to hold
+   the whole script lettering, so no part of the K or P is ever cut off while it animates. */
 .mono{
-  font:400 clamp(120px,24cqw,200px)/.85 var(--f-script);color:var(--fg);padding:0 14px 8px 0;
+  font:400 clamp(120px,24cqw,200px)/1.4 var(--f-script);color:var(--fg);margin-block:-.3em -.2em;
   filter:drop-shadow(0 0 14px rgba(228,64,47,.35));
-  animation:wipe 1.5s .5s cubic-bezier(.6,.1,.2,1) backwards,glow 3.5s 2s ease-in-out infinite alternate;
+  animation:glow 3.5s 2s ease-in-out infinite alternate;
 }
+.mono span{display:inline-block;padding:0 .12em 0 .14em;margin-left:-.14em;animation:wipe 1.5s .5s cubic-bezier(.6,.1,.2,1) backwards}
 .sig{font:400 clamp(30px,5cqw,44px)/1 var(--f-script);margin-top:6px;animation:fadeUp .8s 1.5s var(--ease) backwards}
 .sig-sub{position:relative;margin-top:8px;padding-top:10px;font:italic 800 13px var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--chrome);animation:fadeUp .8s 1.6s var(--ease) backwards}
 .sig-sub::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--red);transform-origin:0 50%;animation:grow .9s 1.35s var(--ease) backwards}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}}
 @keyframes lineIn{from{transform:translateY(105%) skewX(-12deg);opacity:0}}
-@keyframes wipe{from{clip-path:inset(-20% 100% -20% 0)}to{clip-path:inset(-20% -20% -20% -20%)}}
+@keyframes wipe{from{clip-path:inset(-10% 100% -10% -10%)}to{clip-path:inset(-10% -10% -10% -10%)}}
 @keyframes glow{to{filter:drop-shadow(0 0 30px rgba(228,64,47,.75))}}
 @keyframes grow{from{transform:scaleX(0)}}
 
@@ -243,10 +246,14 @@ body.leaving main{opacity:0;transform:translateY(-6px);transition:opacity .22s e
 .grid>li:nth-child(3n+2){--d:.09s}
 .grid>li:nth-child(3n){--d:.18s}
 
+/* Visitors whose phone or computer is set to "reduce motion" still get the one-time animations (headline, fades,
+   reveals, hover). Only the endless loops stop: the ticker, the rain streaks and the glow pulse.
+   To keep those running for everyone too, delete this whole block. */
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
-  *,*::before,*::after{animation:none!important;transition:none!important}
-  .js .reveal,.js .reveal.wipe{opacity:1;transform:none;clip-path:none}
-  .js .sec-head.reveal::after{width:96px}
-  .progress{display:none}
+  .hero::before,.hero::after,.mono,.ticker-track{animation:none}
 }
+
+/* phones: keep the name on one line */
+.brand .name{white-space:nowrap}
+@media (max-width:560px){.brand .sub{display:none}}
